@@ -1,0 +1,130 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: solr-exporter-service
+  labels:
+    app.kubernetes.io/component: solr-exporter
+    app.kubernetes.io/instance: solr
+    name: solr-exporter
+  namespace: default
+spec:
+  type: ClusterIP
+  ports:
+  - name: tcp-client
+    port: 9983
+    protocol: TCP
+    targetPort: exporter-port
+  selector:
+    app.kubernetes.io/component: solr-exporter
+    app.kubernetes.io/instance: solr
+    app.kubernetes.io/name: solr
+  sessionAffinity: None
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+    meta.helm.sh/release-name: solr
+    meta.helm.sh/release-namespace: default
+  generation: 1
+  labels:
+    app.kubernetes.io/component: solr-exporter
+    app.kubernetes.io/instance: solr
+    app.kubernetes.io/name: solr
+  name: solr-exporter
+  namespace: default
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: solr-exporter
+      app.kubernetes.io/instance: solr
+      app.kubernetes.io/name: solr
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: solr-exporter
+        app.kubernetes.io/instance: solr
+        app.kubernetes.io/name: solr
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: "clusterType"
+                operator: In
+                values:
+                - "control-apps"
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/component: solr
+                  app.kubernetes.io/instance: solr
+                  app.kubernetes.io/name: solr
+              namespaces:
+              - default
+              topologyKey: kubernetes.io/hostname
+            weight: 1
+      containers:
+      - command:
+        - /opt/solr/contrib/prometheus-exporter/bin/solr-exporter
+        - -p
+        - "9983"
+        - -z
+        - zk-0.zk-headless.default.svc.cluster.local:2181,zk-1.zk-headless.default.svc.cluster.local:2181,zk-2.zk-headless.default.svc.cluster.local:2181
+        - -n
+        - "7"
+        - -f
+        - /opt/solr/contrib/prometheus-exporter/conf/solr-exporter-config.xml
+        image: solr:8.1.1
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 15
+          httpGet:
+            path: /metrics
+            port: 9983
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 15
+        name: solr-exporter
+        ports:
+        - containerPort: 9983
+          name: exporter-port
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 15
+          httpGet:
+            path: /metrics
+            port: 9983
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          successThreshold: 15
+          timeoutSeconds: 15
+        resources: {}
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1001
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        fsGroup: 1001
+      serviceAccount: default
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 30

@@ -1,0 +1,41 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: solr8demo
+  region: us-west-2
+
+managedNodeGroups:
+  - name: managed-ng-zookeeper
+    privateNetworking: true
+    minSize: 3
+    maxSize: 5
+    desiredCapacity: 3
+    instanceTypes: ["m5.xlarge"]
+    labels:
+      clusterType: zookeeper
+    iam:
+      withAddonPolicies:
+        autoScaler: true
+  - name: managed-ng-solrcloud
+    privateNetworking: true
+    minSize: 3
+    maxSize: 10
+    desiredCapacity: 3
+    instanceTypes: ["m5.xlarge"]
+    labels:
+      clusterType: solrcloud
+    iam:
+      withAddonPolicies:
+        autoScaler: true      
+  - name: managed-ng-control-apps
+    privateNetworking: true
+    minSize: 1
+    maxSize: 2
+    desiredCapacity: 1
+    instanceTypes: ["m5.xlarge"]
+    labels:
+      clusterType: control-apps
+    iam:
+      withAddonPolicies:
+        autoScaler: true   

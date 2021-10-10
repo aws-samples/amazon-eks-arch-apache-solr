@@ -1,0 +1,12 @@
+rules:
+  external:
+  - seriesQuery: '{__name__="solr_metrics_jetty_dispatches_total"}'
+    resources:
+      template: <<.Resource>>
+    name:
+        as : "solr_metrics"
+        matches: ""
+    metricsQuery: '<<.Series>>{job="solr"}'
+
+nodeSelector:
+  clusterType: control-apps
