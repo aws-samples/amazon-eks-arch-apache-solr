@@ -56,12 +56,16 @@ helm repo add prometheus-community https://prometheus-community.github.io/helm-c
 helm repo update
 ```
 
-5.	Install Prometheus adapter:
+5. Install Kubernetes Metrics Server
 
 ```bash
-helm install prometheus-adapter prometheus-community/prometheus-adapter --set prometheus.url=http://prometheus-server.default.svc.cluster.local --set prometheus.port=80 --values=adapterConfig.yml
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+```
 
-helm install prometheus prometheus-community/prometheus --values prom.yml
+Verify that the metrics-server deployment is running the desired number of pods with the following command.
+
+```bash
+kubectl get deployment metrics-server -n kube-system
 ```
 
 6.	Install ZooKeeper for SolrCloud Zookeeper ensemble:
@@ -69,6 +73,21 @@ helm install prometheus prometheus-community/prometheus --values prom.yml
 ```
 kubectl create configmap zookeeper-ensemble-config --from-env-file=zk-config.properties
 kubectl apply -f zookeeper.yml 
+```
+
+Check status of the pods in the StatefulSet for Zookeeper by running the following command
+
+```bash
+kubectl get pods -l app=zk
+```
+
+Expected output should look like
+
+```
+NAME   READY   STATUS    RESTARTS   AGE
+zk-0   1/1     Running   0          4h4m
+zk-1   1/1     Running   0          4h3m
+zk-2   1/1     Running   0          4h3m
 ```
 
 7.	Install Solr and Solr-metrics exporter:
@@ -79,25 +98,114 @@ kubectl apply -f solr-cluster.yml
 kubectl apply -f solr-exporter.yml
 ```
 
-8.	Configure [Horizontal Pod Autoscaler (HPA)](https://docs.aws.amazon.com/eks/latest/userguide/horizontal-pod-autoscaler.html) and [Cluster Autoscaler (CA)](https://docs.aws.amazon.com/eks/latest/userguide/cluster-autoscaler.html) using `kubectl`:
+Check status of the Solr pods
+
+```bash
+kubectl get pods -l app=solr-app
+```
+
+Expected output
+
+```
+NAME     READY   STATUS    RESTARTS   AGE
+solr-0   1/1     Running   0          3h59m
+solr-1   1/1     Running   0          3h59m
+solr-2   1/1     Running   0          3h58m
+```
+
+Verify that the Solr Exporter service is running on port 9983. This is important since our HPA depends on Solr metrics to be exported to Kubernetes metrics server via Prometheus.
+
+```bash
+kubectl get service/solr-exporter-service
+```
+
+Expected output (_Note: CLUSTER-IP will likely be different_)
+
+```
+NAME                    TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)    AGE
+solr-exporter-service   ClusterIP   10.100.205.122   <none>        9983/TCP   4h1m
+```
+
+8. Update the `prom.yml` Prometheus configuration file with the `solr-exporter-service` IP and host port.
+
+Find the `solr-exporter-service` cluster IP address using the command below
+
+```bash
+kubectl get service/solr-exporter-service -o jsonpath='{.spec.clusterIP}'
+```
+
+Update the `prometheus.yml` property in the `prom.yml` file as shown below and replace `<solr-exporter-service-IP>` with the cluster IP from above command. Save the file.
+
+```yaml
+scrape_configs:
+  - job_name: prometheus
+      static_configs:
+        - targets:
+          - localhost:9090
+  - job_name: solr
+      scheme: http
+        static_configs:
+          - targets: ['<solr-exporter-service-IP>:9983']
+```
+
+9.	Install Prometheus adapter:
+
+```bash
+helm install prometheus-adapter prometheus-community/prometheus-adapter --set prometheus.url=http://prometheus-server.default.svc.cluster.local --set prometheus.port=80 --values=adapterConfig.yml
+helm install prometheus prometheus-community/prometheus --values prom.yml
+```
+
+9.	Configure [Horizontal Pod Autoscaler (HPA)](https://docs.aws.amazon.com/eks/latest/userguide/horizontal-pod-autoscaler.html) and [Cluster Autoscaler (CA)](https://docs.aws.amazon.com/eks/latest/userguide/cluster-autoscaler.html) using `kubectl`:
 
 ```bash
 kubectl apply -f hpa.yml
 kubectl apply -f cluster-autoscaler-autodiscover.yaml
 ```
-9. Obtain SolrCloud Administration UI URL using `kubectl get services solr-service` from a terminal in your Cloud9 workspace. The URL will be of the form `http://<xxxxx>.<region>.elb.amazonaws.com:8983`.
+
+Verify HPA has been setup correctly-
+
+```bash
+kubectl describe hpa
+```
+
+Expected output
+
+```
+Name:                             solr-hpa
+Namespace:                        default
+Labels:                           <none>
+Annotations:                      <none>
+CreationTimestamp:                Wed, 22 Dec 2021 19:25:18 +0000
+Reference:                        StatefulSet/solr
+Metrics:                          ( current / target )
+  "solr_metrics" (target value):  4021 / 50k
+Min replicas:                     3
+Max replicas:                     20
+StatefulSet pods:                 20 current / 20 desired
+Conditions:
+  Type            Status  Reason            Message
+  ----            ------  ------            -------
+  AbleToScale     True    ReadyForNewScale  recommended size matches current size
+  ScalingActive   True    ValidMetricFound  the HPA was able to successfully calculate a replica count from external metric solr_metrics(nil)
+  ScalingLimited  True    TooManyReplicas   the desired replica count is more than the maximum replica count
+Events:           <none>
+```
+
+> :warning: The "solr_metrics" value may be 0 or a lower number when setting up the Solr deployment. However, this number is expected to change when Solr receives client requests. Also note that the `maxReplicas` used in the `hpa.yml` config file is set to 10. You may consider changing this to meet the needs of your Solr deployment. `maxReplicas` defines the maximum number of pods the HPA can scale up to.
+
+1.  Obtain SolrCloud Administration UI URL using `kubectl get services solr-service` from a terminal in your Cloud9 workspace. The URL will be of the form `http://<xxxxx>.<region>.elb.amazonaws.com:8983`.
 
 <p align="center">
   <img src="./data/solr-service-details.png" alt="K8s services"/>
 </p>
 
-10. Create a [Solr Collection](https://solr.apache.org/guide/6_6/collections-api.html#CollectionsAPI-create) named `Books` using the Solr Administration UI and upload the sample data file `data/books.json`.
+11. Create a [Solr Collection](https://solr.apache.org/guide/6_6/collections-api.html#CollectionsAPI-create) named `Books` using the Solr Administration UI and upload the sample data file `data/books.json`.
 
 <p align="center">
   <img src="./data/solr-collection-data.png" alt="Apache Solr collection"/>
 </p>
     
-11. Cnfigure SolrCloud autoscaler by setting a [Search Rate Trigger](https://solr.apache.org/guide/7_4/solrcloud-autoscaling-triggers.html). The autoscaler config can be set using the endpoint `http://<xxxxx>.<region>.elb.amazonaws.com:8983/api/cluster/autoscaling/`:
+12. Cnfigure SolrCloud autoscaler by setting a [Search Rate Trigger](https://solr.apache.org/guide/7_4/solrcloud-autoscaling-triggers.html). The autoscaler config can be set using the endpoint `http://<xxxxx>.<region>.elb.amazonaws.com:8983/api/cluster/autoscaling/`:
 
 ```bash
 curl -X POST -H 'Content-type:application/json' -d '{

@@ -1303,7 +1303,7 @@ serverFiles:
       - job_name: solr
         scheme: http
         static_configs:
-          - targets: ['192.168.40.237:9983']
+          - targets: ['<solr-exporter-service-IP>:9983']
 
       # A scrape configuration for running Prometheus on a Kubernetes cluster.
       # This uses separate scrape configs for cluster components (i.e. API server, node)
