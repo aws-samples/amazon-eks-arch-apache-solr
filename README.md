@@ -1,5 +1,8 @@
 # Apache Solr on Amazon Elastic Kubernetes Service
 
+ [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+ 
+
 This repo contains sample configuration files to install [Apache Solr](https://solr.apache.org/) on [Amazon Elastic Kubernetes Service (EKS)](https://docs.aws.amazon.com/eks/latest/userguide/what-is-eks.html). It also contains some files required to run the demo. This repository walks through the installation and configuration of the following components-
 
 - An Amazon EKS Cluster with three [managed node groups](https://docs.aws.amazon.com/eks/latest/userguide/managed-node-groups.html)
@@ -32,10 +35,16 @@ git clone <repo_url> apache-solr-k8s-main
 cd apache-solr-k8s-main/config
 ```
 
-2.	Create an Amazon EKS cluster using. Note: replace `region of choice` with the AWS region you wish to deploy your EKS Cluster.
+2.	Create an Amazon EKS cluster using. Note: replace `<region of choice>` with the AWS region you wish to deploy your EKS Cluster, for example `--region=us-west-2`.
 
 ```bash
-eksctl create cluster --version=1.21 --name= solr8demo --region=<region of choice> --node-private-networking --alb-ingress-access --asg-access --without-nodegroup
+eksctl create cluster --version=1.21 \
+--name= solr8demo \
+--region=<region of choice> \
+--node-private-networking \
+--alb-ingress-access \
+--asg-access \
+--without-nodegroup
 ```
 
 3.	Create the Managed Node Groups in private subnets within the cluster using:
@@ -151,8 +160,13 @@ scrape_configs:
 9.	Install Prometheus adapter:
 
 ```bash
-helm install prometheus-adapter prometheus-community/prometheus-adapter --set prometheus.url=http://prometheus-server.default.svc.cluster.local --set prometheus.port=80 --values=adapterConfig.yml
-helm install prometheus prometheus-community/prometheus --values prom.yml
+helm install prometheus-adapter prometheus-community/prometheus-adapter \
+--set prometheus.url=http://prometheus-server.default.svc.cluster.local \
+--set prometheus.port=80 \
+--values=adapterConfig.yml
+
+helm install prometheus prometheus-community/prometheus \
+--values prom.yml
 ```
 
 9.	Configure [Horizontal Pod Autoscaler (HPA)](https://docs.aws.amazon.com/eks/latest/userguide/horizontal-pod-autoscaler.html) and [Cluster Autoscaler (CA)](https://docs.aws.amazon.com/eks/latest/userguide/cluster-autoscaler.html) using `kubectl`:
