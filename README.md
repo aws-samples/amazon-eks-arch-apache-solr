@@ -1,7 +1,7 @@
 # Apache Solr on Amazon Elastic Kubernetes Service
 
 [![Latest Version](https://img.shields.io/github/tag/aws-samples/amazon-eks-arch-apache-solr)](https://github.com/aws-samples/amazon-eks-arch-apache-solr/releases)
- [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+ [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/aws-samples/amazon-eks-arch-apache-solr/blob/main/LICENSE)
 
 
 This repo contains sample configuration files to install [Apache Solr](https://solr.apache.org/) on [Amazon Elastic Kubernetes Service (EKS)](https://docs.aws.amazon.com/eks/latest/userguide/what-is-eks.html). It also contains some files required to run the demo. This repository walks through the installation and configuration of the following components-
