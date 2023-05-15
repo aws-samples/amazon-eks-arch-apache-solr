@@ -27,11 +27,11 @@ from functools import reduce
 from tqdm import tqdm
 import sys
 
-url = 'http://<external_ip>:8983/solr/employee/select?q=*'
+url = 'http://<external_ip>:8983/solr/Books/select?q=*'
 
 def getUrl(url):
     try:
-        url = 'http://<external_ip>:8983/solr/employee/select?q=*'
+        url = 'http://<external_ip>:8983/solr/Books/select?q=*'
         return requests.get(url,timeout=30)
     except Exception as e:
         pass
